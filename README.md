@@ -10,7 +10,7 @@ This is a **personal project** (Strictly Using Vibecoding). It is **not** the of
 
 1. Download the latest `.xpi` from [Releases](https://github.com/anotgrass/linkwarden-browse-suv/releases).
 2. In Firefox open `about:addons` → the gear menu → **Install Add-on From File…** → choose that `.xpi`.
-3. Click the toolbar icon → gear → enter your Linkwarden instance URL and API key.
+3. Click the toolbar icon → gear (or **Configure**) → a settings **tab** opens → enter your Linkwarden URL and API key → **Save**.
 
 Firefox can auto-update from this GitHub repo after that first install.
 

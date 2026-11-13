@@ -1,5 +1,3 @@
-// ./OptionsForm.tsx
-
 import {
   Form,
   FormControl,
@@ -29,10 +27,7 @@ import {
 import { configType } from "../lib/validators/config.ts";
 import { Toaster } from "./ui/Toaster.tsx";
 import { toast } from "../../hooks/useToast.ts";
-import { AxiosError } from "axios";
 import { clearBookmarksMetadata } from "../lib/cache.ts";
-import { getSession, revokeSession } from "../lib/auth/auth.ts";
-import { getMe } from "../lib/actions/user.ts";
 
 interface OptionsFormProps {
   onSaved?: () => void;
@@ -42,34 +37,11 @@ interface OptionsFormProps {
 
 const EMPTY_FORM: optionsFormInput = {
   baseUrl: "https://cloud.linkwarden.app",
-  method: "apiKey",
-  username: "",
-  password: "",
   apiKey: "",
   syncBookmarks: false,
   showIcons: true,
   defaultCollection: "Unorganized",
 };
-
-function authErrorMessage(error: unknown): string {
-  if (error instanceof AxiosError) {
-    const data = error.response?.data as
-      | { response?: string; code?: string }
-      | undefined;
-    if (typeof data?.response === "string" && data.response.trim()) {
-      return data.response;
-    }
-    if (error.response?.status === 401) {
-      return "Invalid credentials or API key";
-    }
-    if (error.response?.status === 400) {
-      return "Sign-in rejected (password login may be disabled on this instance — try an API key)";
-    }
-    if (error.message) return error.message;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return "Something went wrong. Check your URL and credentials.";
-}
 
 const displayInstance = (baseUrl: string) =>
   baseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -100,12 +72,9 @@ const OptionsForm = ({
   const { mutate: onSignOut, isPending: signOutLoading } = useMutation({
     mutationFn: async () => {
       const configured = await isConfigured();
-
       if (!configured) {
-        return new Error("Not configured");
+        throw new Error("Not configured");
       }
-
-      return;
     },
     onError: () => {
       toast({
@@ -114,56 +83,33 @@ const OptionsForm = ({
           "Either you didn't configure the extension or there was an error while trying to sign out. Please try again.",
         variant: "destructive",
       });
-      return;
     },
     onSuccess: async () => {
-      const { baseUrl, apiKey } = await getConfig();
-
-      // Revokes the token from a username/password sign in on the server, an API key is left as is
-      revokeSession(baseUrl, apiKey).catch(() => {});
-
-      // Reset the form
-          form.reset({ ...EMPTY_FORM, baseUrl: "" });
+      form.reset({ ...EMPTY_FORM, baseUrl: "" });
       await clearConfig();
       await clearBookmarksMetadata();
       setSignedInTo(null);
       onCleared?.();
-      return;
     },
   });
 
+  // Same save path as upstream for API keys: store the key and use it as Bearer token.
   const { mutate: onSubmit, isPending } = useMutation({
     mutationFn: async (values: optionsFormValues) => {
       const baseUrl = values.baseUrl.replace(/\/$/, "");
-
-      if (values.method === "apiKey") {
-        const token = values.apiKey?.trim() ?? "";
-        await getMe(baseUrl, token);
-        return { ...values, baseUrl, token };
+      const apiKey = values.apiKey.trim();
+      if (!apiKey) {
+        throw new Error("API key is required");
       }
-
-      const session = await getSession(
-        baseUrl,
-        values.username,
-        values.password
-      );
-
-      if (session.status !== 200) {
-        throw new Error("Invalid credentials");
-      }
-
-      const token = (session.data as { response?: { token?: string } })
-        ?.response?.token;
-      if (!token) {
-        throw new Error("No session token returned — try an API key instead");
-      }
-
-      return { ...values, baseUrl, token };
+      return { ...values, baseUrl, apiKey };
     },
     onError: (error) => {
       toast({
-        title: "Could not sign in",
-        description: authErrorMessage(error),
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong, check your values are correct.",
         variant: "destructive",
       });
     },
@@ -173,14 +119,15 @@ const OptionsForm = ({
         defaultCollection: values.defaultCollection,
         syncBookmarks: values.syncBookmarks,
         showIcons: values.showIcons ?? true,
-        apiKey: values.token,
+        apiKey: values.apiKey,
       });
 
       setSignedInTo(values.baseUrl);
 
       toast({
         title: "Saved",
-        description: "Your settings have been saved.",
+        description:
+          "Your settings have been saved. You can close this tab and reopen the extension.",
         variant: "success",
       });
 
@@ -199,8 +146,7 @@ const OptionsForm = ({
     })();
   }, [form, initialSignedInTo]);
 
-  const { handleSubmit, control, watch } = form;
-  const method = watch("method");
+  const { handleSubmit, control } = form;
 
   if (signedInTo === undefined) return null;
 
@@ -277,147 +223,29 @@ const OptionsForm = ({
             )}
           />
 
-          {/* Native select: custom popovers close the Firefox toolbar popup. */}
           <FormField
             control={control}
-            name="method"
+            name="apiKey"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Method</FormLabel>
+                <FormLabel>API Key</FormLabel>
                 <FormDescription>
-                  API key is recommended (Settings → Access Tokens in
-                  Linkwarden). Some instances disable password login.
+                  Create one in Linkwarden under Settings → Access Tokens.
                 </FormDescription>
                 <FormControl>
-                  <select
-                    className="field flex h-9 w-full px-3 py-1 text-sm"
-                    value={field.value ?? "apiKey"}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    ref={field.ref}
-                  >
-                    <option value="apiKey">API Key</option>
-                    <option value="username">Username and Password</option>
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Conditionally render API Key or Username/Password fields */}
-          {method === "apiKey" ? (
-            <FormField
-              control={control}
-              name="apiKey"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>API Key</FormLabel>
-                  <FormDescription>
-                    Enter your Linkwarden API Key.
-                  </FormDescription>
-                  <FormControl>
-                    <Input
-                      placeholder="Your API Key"
-                      autoComplete="off"
-                      {...field}
-                      type="password"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ) : (
-            <>
-              <FormField
-                control={control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username or Email</FormLabel>
-                    <FormDescription>
-                      Your Linkwarden Username or Email.
-                    </FormDescription>
-                    <FormControl>
-                      <Input
-                        placeholder="johnny"
-                        autoComplete="username"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormDescription>
-                      Password for your Linkwarden account.
-                    </FormDescription>
-                    <FormControl>
-                      <Input
-                        placeholder="••••••••••••••"
-                        autoComplete="current-password"
-                        {...field}
-                        type="password"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </>
-          )}
-
-          {/* Commented out fields */}
-          {/* 
-          <FormField
-            control={control}
-            name="defaultCollection"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Default collection</FormLabel>
-                <FormDescription>
-                  Default collection to add bookmarks to.
-                </FormDescription>
-                <FormControl>
-                  <Input placeholder="Unorganized" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          */}
-
-          {/* 
-          <FormField
-            control={control}
-            name="syncBookmarks"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Sync Bookmarks (Experimental)</FormLabel>
-                <FormDescription>
-                  Sync your bookmarks with Linkwarden.
-                </FormDescription>
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
+                  <Input
+                    placeholder="Your API Key"
+                    autoComplete="off"
+                    type="password"
+                    {...field}
                   />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          */}
 
-          <div className="flex justify-end pb-2">
+          <div className="flex justify-end gap-2 pb-2">
             <Button disabled={isPending} type="submit">
               Save
             </Button>

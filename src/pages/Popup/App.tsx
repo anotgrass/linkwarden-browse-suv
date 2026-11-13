@@ -2,16 +2,27 @@ import Container from "../../@/components/Container.tsx";
 import WholeContainer from "../../@/components/WholeContainer.tsx";
 import BookmarkForm from "../../@/components/BookmarkForm.tsx";
 import CascadingBookmarks from "../../@/components/CascadingBookmarks.tsx";
-import OptionsForm from "../../@/components/OptionsForm.tsx";
 import { useCallback, useEffect, useState } from "react";
 import { getConfig, isConfigured } from "../../@/lib/config.ts";
-import { isSafeHttpUrl, openSafeUrl } from "../../@/lib/utils.ts";
+import { getBrowser, isSafeHttpUrl, openSafeUrl } from "../../@/lib/utils.ts";
 import NotConfigured from "../../@/components/NotConfigured.tsx";
 import { ModeToggle } from "../../@/components/ModeToggle.tsx";
 import { Button } from "@/@/components/ui/Button.tsx";
-import { ArrowLeft, Plus, Settings, X } from "lucide-react";
+import { ArrowLeft, Plus, Settings } from "lucide-react";
 
-type View = "browse" | "add" | "settings";
+type View = "browse" | "add";
+
+function openExtensionOptions() {
+  const browserApi = getBrowser();
+  // Full options tab — survives closing the toolbar popup (unlike in-popup forms).
+  if (browserApi.runtime.openOptionsPage) {
+    void browserApi.runtime.openOptionsPage();
+    return;
+  }
+  void browserApi.tabs.create({
+    url: browserApi.runtime.getURL("src/pages/Options/options.html"),
+  });
+}
 
 function App() {
   const [isAllConfigured, setIsAllConfigured] = useState<boolean>();
@@ -29,15 +40,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    refreshConfig();
+    void refreshConfig();
   }, [refreshConfig]);
 
-  const title =
-    view === "settings"
-      ? "Settings"
-      : view === "add"
-        ? "Add Site"
-        : "Bookmarks";
+  // When the popup is reopened after configuring in the options tab.
+  useEffect(() => {
+    const onFocus = () => {
+      void refreshConfig();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshConfig]);
+
+  const title = view === "add" ? "Add Site" : "Bookmarks";
 
   return (
     <WholeContainer className="max-h-[720px] min-h-[560px]">
@@ -101,33 +116,15 @@ function App() {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() =>
-                setView((prev) => (prev === "settings" ? "browse" : "settings"))
-              }
+              onClick={() => openExtensionOptions()}
             >
-              {view === "settings" ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <Settings className="h-4 w-4" />
-              )}
-              <span className="sr-only">
-                {view === "settings" ? "Close settings" : "Open settings"}
-              </span>
+              <Settings className="h-4 w-4" />
+              <span className="sr-only">Open settings</span>
             </Button>
           </div>
         </header>
 
-        {view === "settings" ? (
-          <div className="rise-in mt-3 max-h-[500px] overflow-y-auto">
-            <OptionsForm
-              onSaved={async () => {
-                const configured = await refreshConfig();
-                if (configured) setView("browse");
-              }}
-              onCleared={refreshConfig}
-            />
-          </div>
-        ) : view === "add" ? (
+        {view === "add" ? (
           <div className="rise-in mt-2">
             <BookmarkForm
               stayOpen
@@ -136,7 +133,7 @@ function App() {
             />
             <NotConfigured
               open={isAllConfigured === false}
-              onConfigure={() => setView("settings")}
+              onConfigure={() => openExtensionOptions()}
             />
           </div>
         ) : (
@@ -144,7 +141,7 @@ function App() {
             <CascadingBookmarks />
             <NotConfigured
               open={isAllConfigured === false}
-              onConfigure={() => setView("settings")}
+              onConfigure={() => openExtensionOptions()}
             />
           </div>
         )}
