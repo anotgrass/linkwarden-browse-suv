@@ -24,6 +24,7 @@ import {
 } from "../lib/actions/links.ts";
 import { getTags, type ResponseTags } from "../lib/actions/tags.ts";
 import { getMe } from "../lib/actions/user.ts";
+import { hasHostAccess, requestHostAccess } from "../lib/hostAccess.ts";
 import { openSafeUrl } from "../lib/utils.ts";
 import { toast } from "../../hooks/useToast.ts";
 import CollectionDrillDown, {
@@ -351,16 +352,27 @@ export default function CascadingBookmarks() {
   const showIcons = configQuery.data?.showIcons !== false;
   const ready = Boolean(baseUrl && apiKey);
 
+  const hostAccessQuery = useQuery({
+    queryKey: ["host-access", baseUrl],
+    queryFn: () => hasHostAccess(baseUrl),
+    enabled: ready,
+    staleTime: 5_000,
+  });
+  const hostOk = hostAccessQuery.data === true;
+  const hostChecked = hostAccessQuery.isSuccess || hostAccessQuery.isError;
+  // If the permissions API is missing, treat as allowed (Chromium installs).
+  const canFetch = ready && (hostOk || (hostChecked && hostAccessQuery.data !== false));
+
   const userQuery = useQuery({
     queryKey: ["user", baseUrl],
     queryFn: () => getMe(baseUrl, apiKey),
-    enabled: ready,
+    enabled: canFetch,
   });
 
   const collectionsQuery = useQuery({
     queryKey: ["collections", baseUrl],
     queryFn: async () => (await getCollections(baseUrl, apiKey)).data.response,
-    enabled: ready,
+    enabled: canFetch,
   });
 
   const tagsQuery = useQuery({
@@ -369,7 +381,7 @@ export default function CascadingBookmarks() {
       const page = await getTags(baseUrl, apiKey, 0, "");
       return page.tags;
     },
-    enabled: ready && navMode === "tags",
+    enabled: canFetch && navMode === "tags",
   });
 
   const collections = collectionsQuery.data ?? [];
@@ -394,7 +406,7 @@ export default function CascadingBookmarks() {
     queryKey: ["cascade-list", baseUrl, listParams],
     queryFn: () => searchLinks(baseUrl, apiKey, listParams!),
     enabled:
-      ready &&
+      canFetch &&
       listParams != null &&
       (navMode !== "tags" || selectedTagId != null || !!debounced.trim()),
   });
@@ -514,10 +526,86 @@ export default function CascadingBookmarks() {
     });
   };
 
-  if (configQuery.isLoading || collectionsQuery.isLoading) {
+  const grantHostAccess = async () => {
+    const granted = await requestHostAccess(baseUrl);
+    await queryClient.invalidateQueries({ queryKey: ["host-access"] });
+    if (granted) {
+      await queryClient.invalidateQueries({ queryKey: ["collections"] });
+      await queryClient.invalidateQueries({ queryKey: ["cascade-list"] });
+      await queryClient.invalidateQueries({ queryKey: ["cascade-links"] });
+      await queryClient.invalidateQueries({ queryKey: ["user"] });
+      toast({ title: "Access granted", variant: "success" });
+      return;
+    }
+    toast({
+      title: "Permission needed",
+      description:
+        "Allow site access when Firefox prompts, or turn on “Access your data for all websites” for this extension in about:addons.",
+      variant: "destructive",
+    });
+  };
+
+  if (configQuery.isLoading || (ready && hostAccessQuery.isLoading)) {
     return (
       <div className="flex justify-center py-8">
         <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+
+  if (ready && hostChecked && hostAccessQuery.data === false) {
+    return (
+      <div className="panel flex flex-col items-center gap-3 p-6 text-center">
+        <p className="text-sm font-medium">Site access required</p>
+        <p className="text-xs text-muted-foreground">
+          Firefox needs permission for this extension to read your Linkwarden
+          library. Without it, collections and links stay empty.
+        </p>
+        <Button type="button" onClick={() => void grantHostAccess()}>
+          Allow access to Linkwarden
+        </Button>
+        <p className="text-[11px] text-muted-foreground">
+          Or enable “Access your data for all websites” under about:addons →
+          this extension → Permissions.
+        </p>
+      </div>
+    );
+  }
+
+  if (canFetch && collectionsQuery.isLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+
+  if (canFetch && collectionsQuery.isError) {
+    return (
+      <div className="panel flex flex-col items-center gap-3 p-6 text-center">
+        <p className="text-sm font-medium">Couldn’t load collections</p>
+        <p className="text-xs text-muted-foreground">
+          {collectionsQuery.error instanceof Error
+            ? collectionsQuery.error.message
+            : "Check your URL, API key, and site access permission."}
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void grantHostAccess()}
+          >
+            Grant site access
+          </Button>
+          <Button
+            type="button"
+            onClick={() =>
+              void queryClient.invalidateQueries({ queryKey: ["collections"] })
+            }
+          >
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }

@@ -11,6 +11,7 @@ This is a **personal project** (Strictly Using Vibecoding). It is **not** the of
 1. Download the latest `.xpi` from [Releases](https://github.com/anotgrass/linkwarden-browse-suv/releases).
 2. In Firefox open `about:addons` → the gear menu → **Install Add-on From File…** → choose that `.xpi`.
 3. Click the toolbar icon → gear (or **Configure**) → a settings **tab** opens → enter your Linkwarden URL and API key → **Save**.
+4. When prompted (or if collections look empty), allow **site access** for the extension — Firefox may call this “Access your data for all websites”. The popup also has an **Allow access to Linkwarden** button.
 
 Firefox can auto-update from this GitHub repo after that first install.
 
