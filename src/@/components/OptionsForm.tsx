@@ -32,7 +32,6 @@ import { toast } from "../../hooks/useToast.ts";
 import { AxiosError } from "axios";
 import { clearBookmarksMetadata } from "../lib/cache.ts";
 import { getSession, revokeSession } from "../lib/auth/auth.ts";
-import SelectInput, { SelectOption } from "./SelectInput.tsx";
 
 interface OptionsFormProps {
   onSaved?: () => void;
@@ -50,11 +49,6 @@ const EMPTY_FORM: optionsFormInput = {
   showIcons: true,
   defaultCollection: "Unorganized",
 };
-
-const METHOD_OPTIONS: SelectOption[] = [
-  { value: "username", label: "Username and Password" },
-  { value: "apiKey", label: "API Key" },
-];
 
 const displayInstance = (baseUrl: string) =>
   baseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -286,6 +280,7 @@ const OptionsForm = ({
         <form
           onSubmit={handleSubmit((data) => onSubmit(data))}
           className="space-y-3 px-2"
+          autoComplete="off"
         >
           <FormField
             control={control}
@@ -299,6 +294,7 @@ const OptionsForm = ({
                 <FormControl>
                   <Input
                     placeholder="https://cloud.linkwarden.app"
+                    autoComplete="off"
                     {...field}
                   />
                 </FormControl>
@@ -307,7 +303,7 @@ const OptionsForm = ({
             )}
           />
 
-          {/* Authentication Method Select */}
+          {/* Native select: custom popovers close the Firefox toolbar popup. */}
           <FormField
             control={control}
             name="method"
@@ -317,12 +313,19 @@ const OptionsForm = ({
                 <FormDescription>
                   Choose your preferred authentication method.
                 </FormDescription>
-                <SelectInput
-                  value={field.value ?? ""}
-                  onChange={field.onChange}
-                  options={METHOD_OPTIONS}
-                  placeholder="Select authentication method"
-                />
+                <FormControl>
+                  <select
+                    className="field flex h-9 w-full px-3 py-1 text-sm"
+                    value={field.value ?? "username"}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  >
+                    <option value="username">Username and Password</option>
+                    <option value="apiKey">API Key</option>
+                  </select>
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -342,6 +345,7 @@ const OptionsForm = ({
                   <FormControl>
                     <Input
                       placeholder="Your API Key"
+                      autoComplete="off"
                       {...field}
                       type="password"
                     />
@@ -362,7 +366,11 @@ const OptionsForm = ({
                       Your Linkwarden Username or Email.
                     </FormDescription>
                     <FormControl>
-                      <Input placeholder="johnny" {...field} />
+                      <Input
+                        placeholder="johnny"
+                        autoComplete="username"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -380,6 +388,7 @@ const OptionsForm = ({
                     <FormControl>
                       <Input
                         placeholder="••••••••••••••"
+                        autoComplete="current-password"
                         {...field}
                         type="password"
                       />
