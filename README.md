@@ -60,6 +60,10 @@ Chromium can load the same `dist/`. Safari: `npm run build:safari` then the Xcod
 3. GitHub Release `vX.Y.Z` with `linkwarden-browse-X.Y.Z.xpi`.
 4. Append the version in `firefox/updates.json` on `main`.
 
+## License
+
+[MIT](LICENSE) — same as upstream. Copyright (c) 2024 Linkwarden; modifications in this fork Copyright (c) 2026 anotgrass. Keep the license and copyright notices when you redistribute.
+
 ## Upstream
 
 Forked from [linkwarden/browser-extension](https://github.com/linkwarden/browser-extension). Do not file issues about this fork on the Linkwarden project.
