@@ -1,5 +1,5 @@
 # Fork notes
 
-See [README.md](README.md) for install and features.
+See [README.md](README.md). Personal / unsupported SUV fork; no support channel.
 
-Stale relative to the current UI: earlier notes about in-popup drag-reorder and an in-extension Manage screen. Reorder/move and heavy collection management are done in the Linkwarden web dashboard; the popup keeps rename/delete for collections plus browse/add.
+UI note: in-popup drag-reorder and a full Manage screen were dropped; use the Linkwarden dashboard for heavy collection work. The popup keeps browse, add, and simple rename/delete.

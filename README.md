@@ -1,43 +1,39 @@
 # Linkwarden Browse (SUV)
 
-**Strictly Using Vibecoding** fork of the [Linkwarden browser extension](https://github.com/linkwarden/browser-extension).
+Browse and save links in your [Linkwarden](https://github.com/linkwarden/linkwarden) collections from a Firefox toolbar popup.
 
-Browse collections and links in a drill-down popup, then save the current page to your Linkwarden instance. This is **not** the official store extension.
+This is a **personal project** (Strictly Using Vibecoding). It is **not** the official [Linkwarden browser extension](https://github.com/linkwarden/browser-extension), is **not affiliated with** Linkwarden, and comes **with no support**. No promises about bugs, updates, or help if something breaks. The code is public in case it is useful to someone else—use it at your own risk.
 
-| | Official Linkwarden | This fork |
-| --- | --- | --- |
-| Focus | Save links | Browse + save |
-| Firefox id | store listing | `linkwarden-browse@local` |
-| Distribution | Chrome / AMO listed | Self-distributed (signed, GitHub updates) |
-
-Repo: [anotgrass/linkwarden-browse-suv](https://github.com/anotgrass/linkwarden-browse-suv)
-
-## Features
-
-- Browse collections with drill-down navigation
-- **All** / **Pinned** / **Collections** / **Tags** on the main view
-- Search links
-- **Add Site** with the same collection picker
-- Rename / delete collections (full manage UX lives in your Linkwarden dashboard)
-- Open, pin/unpin, edit metadata, delete links; copy URL
-- Favicons (toggle in settings)
-- Context menu: save page / save all tabs
-- Omnibox keyword `lw`
-- Sign in with API key (or username/password where supported)
-
-## Install (Firefox, permanent)
+## Install (Firefox)
 
 1. Download the latest `.xpi` from [Releases](https://github.com/anotgrass/linkwarden-browse-suv/releases).
-2. Firefox → `about:addons` → gear → **Install Add-on From File…** → pick the `.xpi`.
-3. Open the toolbar popup → gear → set your Linkwarden URL + API key.
+2. In Firefox open `about:addons` → the gear menu → **Install Add-on From File…** → choose that `.xpi`.
+3. Click the toolbar icon → gear → enter your Linkwarden instance URL and API key.
 
-Updates are automatic via `update_url` → [`firefox/updates.json`](firefox/updates.json) on this repo.
+Firefox can auto-update from this GitHub repo after that first install.
 
-Temporary load (`about:debugging`) still works for development but does not survive restarts.
+| | Official Linkwarden extension | This fork |
+| --- | --- | --- |
+| Purpose | Save links | Browse collections + save |
+| Where to get it | Chrome Web Store / AMO listing | [GitHub Releases](https://github.com/anotgrass/linkwarden-browse-suv/releases) |
+| Support | Upstream project | None |
 
-## Develop
+## What it does
 
-Requires **Node.js 20+** and **npm** (this fork uses npm, not Yarn).
+- Browse collections with drill-down navigation
+- **All** / **Pinned** / **Collections** / **Tags**
+- Search links; open, pin/unpin, edit, delete, copy URL
+- **Add Site** into a collection (same drill-down picker)
+- Rename or delete collections in the popup (heavier management stays in the Linkwarden web UI)
+- Favicons (optional in settings)
+- Right-click: save page or save all tabs
+- Address-bar keyword: `lw`
+
+You need your own Linkwarden instance (or cloud account) and an API key.
+
+## Develop (optional)
+
+Only if you want to build from source. Requires **Node.js 20+** and **npm**.
 
 ```bash
 git clone https://github.com/anotgrass/linkwarden-browse-suv.git
@@ -46,32 +42,24 @@ npm install
 npm run build
 ```
 
-Load `dist/manifest.json` as a temporary add-on in Firefox, or:
+Load `dist/manifest.json` via `about:debugging` (temporary; gone on restart), or run `npm run dev:firefox`.
 
 ```bash
-npm run dev:firefox
-```
-
-Other scripts:
-
-```bash
-npm run pack:firefox   # build + zip for AMO upload
-npm run sign:firefox   # build + Mozilla unlisted sign (needs WEB_EXT_API_KEY / WEB_EXT_API_SECRET)
+npm run pack:firefox   # zip for AMO upload
+npm run sign:firefox   # unlisted sign (WEB_EXT_API_KEY / WEB_EXT_API_SECRET)
 npm run lint:firefox
-npm run e2e            # Playwright (Chromium + a running Linkwarden)
+npm run e2e
 ```
 
-## Firefox release checklist
+Chromium can load the same `dist/`. Safari: `npm run build:safari` then the Xcode project under `safari/`.
 
-1. Bump `version` in [`manifest.config.ts`](manifest.config.ts).
-2. `npm run sign:firefox` (or upload the pack zip to AMO **On your own** and download the signed `.xpi`).
-3. Create a GitHub Release `vX.Y.Z` and upload `linkwarden-browse-X.Y.Z.xpi`.
-4. Append that version to [`firefox/updates.json`](firefox/updates.json) on `main`.
+### Publishing a new Firefox build
 
-## Safari / Chrome
-
-Shared `dist/` build also loads in Chromium. Safari: `npm run build:safari` then open the Xcode project under `safari/` (same caveats as upstream).
+1. Bump `version` in `manifest.config.ts`.
+2. Sign via AMO (**On your own**) or `npm run sign:firefox`.
+3. GitHub Release `vX.Y.Z` with `linkwarden-browse-X.Y.Z.xpi`.
+4. Append the version in `firefox/updates.json` on `main`.
 
 ## Upstream
 
-Based on [linkwarden/browser-extension](https://github.com/linkwarden/browser-extension). Issues for *this* fork belong on [anotgrass/linkwarden-browse-suv](https://github.com/anotgrass/linkwarden-browse-suv/issues), not the Linkwarden core tracker.
+Forked from [linkwarden/browser-extension](https://github.com/linkwarden/browser-extension). Do not file issues about this fork on the Linkwarden project.
