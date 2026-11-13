@@ -4,6 +4,8 @@ Browse and save links in your [Linkwarden](https://github.com/linkwarden/linkwar
 
 This is a **personal project** (Strictly Using Vibecoding). It is **not** the official [Linkwarden browser extension](https://github.com/linkwarden/browser-extension), is **not affiliated with** Linkwarden, and comes **with no support**. No promises about bugs, updates, or help if something breaks. The code is public in case it is useful to someone else—use it at your own risk.
 
+![Linkwarden Browse popup — collections view](assets/popup-browse.png)
+
 ## Install (Firefox)
 
 1. Download the latest `.xpi` from [Releases](https://github.com/anotgrass/linkwarden-browse-suv/releases).
