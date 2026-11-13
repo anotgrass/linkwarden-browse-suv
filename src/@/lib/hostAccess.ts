@@ -1,11 +1,13 @@
 import { getBrowser } from "./utils.ts";
 
-function originsForBaseUrl(baseUrl: string): string[] {
+/** Firefox shows this as “Access your data for all websites”. */
+const ALL_URLS = "<all_urls>";
+
+function instanceOriginPattern(baseUrl: string): string | null {
   try {
-    const origin = new URL(baseUrl).origin;
-    return [`${origin}/*`, "<all_urls>"];
+    return `${new URL(baseUrl).origin}/*`;
   } catch {
-    return ["<all_urls>"];
+    return null;
   }
 }
 
@@ -14,38 +16,41 @@ export async function hasHostAccess(baseUrl: string): Promise<boolean> {
   const browserApi = getBrowser();
   if (!browserApi.permissions?.contains) return true;
 
-  const origins = originsForBaseUrl(baseUrl);
-  for (const origin of origins) {
-    try {
-      if (await browserApi.permissions.contains({ origins: [origin] })) {
-        return true;
-      }
-    } catch {
-      // ignore unsupported origin patterns
+  try {
+    if (await browserApi.permissions.contains({ origins: [ALL_URLS] })) {
+      return true;
     }
+  } catch {
+    // ignore
   }
-  return false;
+
+  const instance = instanceOriginPattern(baseUrl);
+  if (!instance) return false;
+  try {
+    return await browserApi.permissions.contains({ origins: [instance] });
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Ask the user to grant site access. Must run from a user gesture
- * (button click). Firefox may show this as “Access your data…”.
+ * Ask for full host access so API calls, favicons, and page capture work
+ * regardless of which Linkwarden URL is configured. Must run from a click.
  */
-export async function requestHostAccess(baseUrl: string): Promise<boolean> {
+export async function requestHostAccess(_baseUrl: string): Promise<boolean> {
   const browserApi = getBrowser();
   if (!browserApi.permissions?.request) return true;
 
-  const origins = originsForBaseUrl(baseUrl);
-  // Prefer the specific instance origin; fall back to all URLs.
-  for (const origin of origins) {
+  try {
+    return await browserApi.permissions.request({ origins: [ALL_URLS] });
+  } catch {
+    // Some builds reject <all_urls> in request(); fall back to the instance.
+    const instance = instanceOriginPattern(_baseUrl);
+    if (!instance) return false;
     try {
-      const granted = await browserApi.permissions.request({
-        origins: [origin],
-      });
-      if (granted) return true;
+      return await browserApi.permissions.request({ origins: [instance] });
     } catch {
-      // try next pattern
+      return false;
     }
   }
-  return false;
 }

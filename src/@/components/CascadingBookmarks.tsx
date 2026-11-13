@@ -562,11 +562,12 @@ export default function CascadingBookmarks() {
           library. Without it, collections and links stay empty.
         </p>
         <Button type="button" onClick={() => void grantHostAccess()}>
-          Allow access to Linkwarden
+          Allow access to all websites
         </Button>
         <p className="text-[11px] text-muted-foreground">
-          Or enable “Access your data for all websites” under about:addons →
-          this extension → Permissions.
+          This turns on “Access your data for all websites” for the extension
+          (needed for your Linkwarden API). You can also enable it under
+          about:addons → this extension → Permissions.
         </p>
       </div>
     );

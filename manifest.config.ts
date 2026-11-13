@@ -112,7 +112,10 @@ export function buildManifest(target: ManifestTarget) {
       "contextMenus",
       "notifications",
     ],
+    // Required so Firefox can prompt for “Access your data for all websites”.
+    // Also listed as optional so permissions.request(<all_urls>) works after install.
     host_permissions: ["<all_urls>"],
+    optional_host_permissions: ["<all_urls>"],
     background: {
       ...(options.serviceWorker ? { service_worker: "background.js" } : {}),
       scripts: ["background.js"],
