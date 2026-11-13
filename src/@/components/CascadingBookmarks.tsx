@@ -331,6 +331,10 @@ export default function CascadingBookmarks() {
     () => new Set()
   );
   const [linkSelectMode, setLinkSelectMode] = useState(false);
+  const [selectedCollectionIds, setSelectedCollectionIds] = useState<
+    Set<number>
+  >(() => new Set());
+  const [collectionSelectMode, setCollectionSelectMode] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(search), 250);
@@ -340,6 +344,8 @@ export default function CascadingBookmarks() {
   useEffect(() => {
     setSelectedLinkIds(new Set());
     setLinkSelectMode(false);
+    setSelectedCollectionIds(new Set());
+    setCollectionSelectMode(false);
   }, [navMode, debounced, selectedTagId, path]);
 
   const configQuery = useQuery({
@@ -470,6 +476,47 @@ export default function CascadingBookmarks() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDeleteCollections = async (nodes: CollectionTreeNode[]) => {
+    if (nodes.length === 0) return;
+    if (
+      !confirm(
+        nodes.length === 1
+          ? `Delete collection “${nodes[0].name}”? Links in it may be removed.`
+          : `Delete ${nodes.length} collections? Links in them may be removed.`
+      )
+    ) {
+      return;
+    }
+    const results = await Promise.allSettled(
+      nodes.map((node) => deleteCollection(baseUrl, apiKey, node.id))
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const deleted = results.length - failed;
+    const deletedIds = new Set(
+      nodes
+        .filter((_, i) => results[i]?.status === "fulfilled")
+        .map((node) => node.id)
+    );
+    setSelectedCollectionIds(new Set());
+    if (failed === 0) setCollectionSelectMode(false);
+    setPath((prev) => prev.filter((id) => !deletedIds.has(id)));
+    await queryClient.invalidateQueries({ queryKey: ["collections"] });
+    await invalidateLinkQueries();
+    if (failed === 0) {
+      toast({
+        title:
+          deleted === 1 ? "Deleted" : `Deleted ${deleted} collections`,
+        variant: "success",
+      });
+      return;
+    }
+    toast({
+      title: "Delete finished with errors",
+      description: `${deleted} deleted, ${failed} failed`,
+      variant: "destructive",
+    });
   };
 
   const handleDeleteLink = async (link: LinkItem) => {
@@ -746,6 +793,11 @@ export default function CascadingBookmarks() {
             setRenameValue(node.name);
           }}
           onDelete={(node) => void handleDelete(node)}
+          bulkSelectMode={collectionSelectMode}
+          onBulkSelectModeChange={setCollectionSelectMode}
+          selectedIds={selectedCollectionIds}
+          onSelectedIdsChange={setSelectedCollectionIds}
+          onDeleteMany={(nodes) => void handleDeleteCollections(nodes)}
           afterFolders={(current) =>
             current ? (
               <FolderLinks

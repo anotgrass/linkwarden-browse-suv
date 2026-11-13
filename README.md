@@ -27,7 +27,7 @@ Firefox can auto-update from this GitHub repo after that first install.
 - **All** / **Pinned** / **Collections** / **Tags**
 - Search links; open them; delete one (⋯) or bulk-delete with checkboxes
 - **Add Site** into a collection (same drill-down picker)
-- Rename or delete collections in the popup (heavier management stays in the Linkwarden web UI)
+- Rename or delete collections; **Select** / **Select all** for bulk delete of folders or links
 - Favicons (optional in settings)
 - Right-click: save page or save all tabs
 - Address-bar keyword: `lw`

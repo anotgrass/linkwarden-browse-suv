@@ -15,6 +15,7 @@ import {
   findCollectionNode,
 } from "../lib/collectionTree.ts";
 import { Button } from "./ui/Button.tsx";
+import { Checkbox } from "./ui/CheckBox.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,10 +31,17 @@ type Props = {
   collectionOrder?: number[];
   path?: number[];
   onPathChange?: (path: number[]) => void;
+  /** Pick-one mode for Add Site collection chooser. */
   mode?: "browse" | "select";
   onSelect?: (collection: Collection) => void;
   onRename?: (node: CollectionTreeNode) => void;
   onDelete?: (node: CollectionTreeNode) => void;
+  /** Multi-select folders at the current level (browse only). */
+  bulkSelectMode?: boolean;
+  onBulkSelectModeChange?: (on: boolean) => void;
+  selectedIds?: Set<number>;
+  onSelectedIdsChange?: (ids: Set<number>) => void;
+  onDeleteMany?: (nodes: CollectionTreeNode[]) => void;
   afterFolders?: (current: CollectionTreeNode | null) => ReactNode;
   className?: string;
   listClassName?: string;
@@ -49,6 +57,11 @@ export default function CollectionDrillDown({
   onSelect,
   onRename,
   onDelete,
+  bulkSelectMode = false,
+  onBulkSelectModeChange,
+  selectedIds,
+  onSelectedIdsChange,
+  onDeleteMany,
   afterFolders,
   className,
   listClassName,
@@ -84,7 +97,36 @@ export default function CollectionDrillDown({
     onSelect?.(node);
   };
 
-  const showFolderActions = mode === "browse" && (onRename || onDelete);
+  const selection = selectedIds ?? new Set<number>();
+  const setSelection = onSelectedIdsChange ?? (() => undefined);
+  const bulkEnabled =
+    mode === "browse" &&
+    Boolean(onBulkSelectModeChange && onSelectedIdsChange && onDeleteMany);
+
+  const allSelected =
+    folders.length > 0 && folders.every((node) => selection.has(node.id));
+  const selectedFolders = folders.filter((node) => selection.has(node.id));
+
+  const toggleId = (id: number, checked: boolean) => {
+    const next = new Set(selection);
+    if (checked) next.add(id);
+    else next.delete(id);
+    setSelection(next);
+  };
+
+  const selectAll = () => {
+    setSelection(new Set(folders.map((node) => node.id)));
+  };
+
+  const clearSelection = () => setSelection(new Set());
+
+  const exitBulkSelect = () => {
+    clearSelection();
+    onBulkSelectModeChange?.(false);
+  };
+
+  const showFolderActions =
+    mode === "browse" && !bulkSelectMode && (onRename || onDelete);
 
   return (
     <div className={cn("panel flex min-h-0 flex-1 flex-col", className)}>
@@ -141,6 +183,54 @@ export default function CollectionDrillDown({
       ) : null}
 
       <div className={cn("overflow-y-auto p-1.5", listClassName)}>
+        {bulkEnabled && folders.length > 0 ? (
+          <div className="flex items-center justify-between gap-2 px-2 py-1 text-xs text-muted-foreground">
+            {bulkSelectMode ? (
+              <>
+                <button
+                  type="button"
+                  className="hover:text-foreground"
+                  onClick={() => (allSelected ? clearSelection() : selectAll())}
+                >
+                  {allSelected ? "Clear selection" : "Select all"}
+                </button>
+                <div className="flex items-center gap-2">
+                  {selectedFolders.length > 0 ? (
+                    <>
+                      <span>{selectedFolders.length} selected</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-destructive hover:text-destructive"
+                        onClick={() => onDeleteMany?.(selectedFolders)}
+                      >
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        Delete
+                      </Button>
+                    </>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="hover:text-foreground"
+                    onClick={exitBulkSelect}
+                  >
+                    Done
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="hover:text-foreground"
+                onClick={() => onBulkSelectModeChange?.(true)}
+              >
+                Select
+              </button>
+            )}
+          </div>
+        ) : null}
+
         {folders.map((node) => (
           <div key={node.id} className="group flex items-center gap-0.5">
             {mode === "select" ? (
@@ -155,17 +245,36 @@ export default function CollectionDrillDown({
                 <Check className="h-3.5 w-3.5" />
               </Button>
             ) : null}
+            {bulkSelectMode ? (
+              <Checkbox
+                className="ml-1"
+                checked={selection.has(node.id)}
+                onCheckedChange={(value) =>
+                  toggleId(node.id, value === true)
+                }
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Select ${node.name}`}
+              />
+            ) : null}
             <button
               type="button"
               className="list-row min-w-0 flex-1"
-              onClick={() => openFolder(node.id)}
+              onClick={() => {
+                if (bulkSelectMode) {
+                  toggleId(node.id, !selection.has(node.id));
+                  return;
+                }
+                openFolder(node.id);
+              }}
             >
               <Folder
                 className="h-4 w-4 shrink-0"
                 style={{ color: node.color || undefined }}
               />
               <span className="flex-1 truncate font-medium">{node.name}</span>
-              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {!bulkSelectMode ? (
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              ) : null}
             </button>
             {showFolderActions ? (
               <DropdownMenu>
