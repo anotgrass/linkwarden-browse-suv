@@ -12,17 +12,44 @@ const httpUrl = z
     }
   }, 'URL must start with http:// or https://');
 
-export const optionsFormSchema = z.object({
-  baseUrl: httpUrl,
-  username: z.string(),
-  password: z.string(),
-  syncBookmarks: z.boolean().default(false),
-  showIcons: z.boolean().default(true),
-  defaultCollection: z.string().optional().default('Unorganized'),
-  useApiKey: z.boolean().default(false),
-  apiKey: z.string().optional(),
-  method: z.enum(['username', 'apiKey']).default('username'),
-});
+export const optionsFormSchema = z
+  .object({
+    baseUrl: httpUrl,
+    username: z.string(),
+    password: z.string(),
+    syncBookmarks: z.boolean().default(false),
+    showIcons: z.boolean().default(true),
+    defaultCollection: z.string().optional().default('Unorganized'),
+    useApiKey: z.boolean().default(false),
+    apiKey: z.string().optional(),
+    method: z.enum(['username', 'apiKey']).default('apiKey'),
+  })
+  .superRefine((values, ctx) => {
+    if (values.method === 'apiKey') {
+      if (!values.apiKey?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['apiKey'],
+          message: 'API key is required',
+        });
+      }
+      return;
+    }
+    if (!values.username.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['username'],
+        message: 'Username or email is required',
+      });
+    }
+    if (values.password.length < 8) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['password'],
+        message: 'Password must be at least 8 characters',
+      });
+    }
+  });
 
 export type optionsFormValues = z.infer<typeof optionsFormSchema>;
 

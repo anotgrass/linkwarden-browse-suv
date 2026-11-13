@@ -32,6 +32,7 @@ import { toast } from "../../hooks/useToast.ts";
 import { AxiosError } from "axios";
 import { clearBookmarksMetadata } from "../lib/cache.ts";
 import { getSession, revokeSession } from "../lib/auth/auth.ts";
+import { getMe } from "../lib/actions/user.ts";
 
 interface OptionsFormProps {
   onSaved?: () => void;
@@ -41,7 +42,7 @@ interface OptionsFormProps {
 
 const EMPTY_FORM: optionsFormInput = {
   baseUrl: "https://cloud.linkwarden.app",
-  method: "username",
+  method: "apiKey",
   username: "",
   password: "",
   apiKey: "",
@@ -49,6 +50,26 @@ const EMPTY_FORM: optionsFormInput = {
   showIcons: true,
   defaultCollection: "Unorganized",
 };
+
+function authErrorMessage(error: unknown): string {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data as
+      | { response?: string; code?: string }
+      | undefined;
+    if (typeof data?.response === "string" && data.response.trim()) {
+      return data.response;
+    }
+    if (error.response?.status === 401) {
+      return "Invalid credentials or API key";
+    }
+    if (error.response?.status === 400) {
+      return "Sign-in rejected (password login may be disabled on this instance — try an API key)";
+    }
+    if (error.message) return error.message;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return "Something went wrong. Check your URL and credentials.";
+}
 
 const displayInstance = (baseUrl: string) =>
   baseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -102,16 +123,7 @@ const OptionsForm = ({
       revokeSession(baseUrl, apiKey).catch(() => {});
 
       // Reset the form
-      form.reset({
-        baseUrl: "",
-        method: "username",
-        username: "",
-        password: "",
-        apiKey: "",
-        syncBookmarks: false,
-        showIcons: true,
-        defaultCollection: "Unorganized",
-      });
+          form.reset({ ...EMPTY_FORM, baseUrl: "" });
       await clearConfig();
       await clearBookmarksMetadata();
       setSignedInTo(null);
@@ -122,73 +134,38 @@ const OptionsForm = ({
 
   const { mutate: onSubmit, isPending } = useMutation({
     mutationFn: async (values: optionsFormValues) => {
-      values.baseUrl = values.baseUrl.replace(/\/$/, "");
-      // Do API call to test the connection and save the values
+      const baseUrl = values.baseUrl.replace(/\/$/, "");
 
       if (values.method === "apiKey") {
-        return {
-          ...values,
-          data: {
-            response: {
-              token: values.apiKey,
-            },
-          } as {
-            response: {
-              token: string;
-            };
-          },
-        };
-      } else {
-        // Handle Username/Password authentication
-        const session = await getSession(
-          values.baseUrl,
-          values.username,
-          values.password
-        );
-
-        if (session.status !== 200) {
-          throw new Error("Invalid credentials");
-        }
-
-        return {
-          ...values,
-          data: session.data as {
-            response: {
-              token: string;
-            };
-          },
-        };
+        const token = values.apiKey?.trim() ?? "";
+        await getMe(baseUrl, token);
+        return { ...values, baseUrl, token };
       }
+
+      const session = await getSession(
+        baseUrl,
+        values.username,
+        values.password
+      );
+
+      if (session.status !== 200) {
+        throw new Error("Invalid credentials");
+      }
+
+      const token = (session.data as { response?: { token?: string } })
+        ?.response?.token;
+      if (!token) {
+        throw new Error("No session token returned — try an API key instead");
+      }
+
+      return { ...values, baseUrl, token };
     },
     onError: (error) => {
-      // Handle errors appropriately
-      if (error instanceof AxiosError) {
-        if (error.response?.data?.code === "TOO_MANY_ATTEMPTS") {
-          toast({
-            title: "Error",
-            description: error.response.data.response,
-            variant: "destructive",
-          });
-        } else if (error.response?.status === 401) {
-          toast({
-            title: "Error",
-            description: "Invalid credentials or API Key",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: "Something went wrong, try again please.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: "Something went wrong, check your values are correct.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Could not sign in",
+        description: authErrorMessage(error),
+        variant: "destructive",
+      });
     },
     onSuccess: async (values) => {
       await saveConfig({
@@ -196,10 +173,7 @@ const OptionsForm = ({
         defaultCollection: values.defaultCollection,
         syncBookmarks: values.syncBookmarks,
         showIcons: values.showIcons ?? true,
-        apiKey:
-          values.method === "apiKey" && values.apiKey
-            ? values.apiKey
-            : values.data.response.token,
+        apiKey: values.token,
       });
 
       setSignedInTo(values.baseUrl);
@@ -311,19 +285,20 @@ const OptionsForm = ({
               <FormItem>
                 <FormLabel>Method</FormLabel>
                 <FormDescription>
-                  Choose your preferred authentication method.
+                  API key is recommended (Settings → Access Tokens in
+                  Linkwarden). Some instances disable password login.
                 </FormDescription>
                 <FormControl>
                   <select
                     className="field flex h-9 w-full px-3 py-1 text-sm"
-                    value={field.value ?? "username"}
-                    onChange={field.onChange}
+                    value={field.value ?? "apiKey"}
+                    onChange={(e) => field.onChange(e.target.value)}
                     onBlur={field.onBlur}
                     name={field.name}
                     ref={field.ref}
                   >
-                    <option value="username">Username and Password</option>
                     <option value="apiKey">API Key</option>
+                    <option value="username">Username and Password</option>
                   </select>
                 </FormControl>
                 <FormMessage />
