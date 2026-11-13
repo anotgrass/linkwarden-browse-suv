@@ -80,6 +80,8 @@ function LinkList({
   showIcons,
   loading,
   empty,
+  selectMode,
+  onSelectModeChange,
   selectedIds,
   onSelectedIdsChange,
   onDeleteLink,
@@ -90,6 +92,8 @@ function LinkList({
   showIcons: boolean;
   loading?: boolean;
   empty?: string;
+  selectMode: boolean;
+  onSelectModeChange: (on: boolean) => void;
   selectedIds: Set<number>;
   onSelectedIdsChange: (ids: Set<number>) => void;
   onDeleteLink: (link: LinkItem) => void;
@@ -120,6 +124,11 @@ function LinkList({
     onSelectedIdsChange(new Set());
   };
 
+  const exitSelectMode = () => {
+    onSelectedIdsChange(new Set());
+    onSelectModeChange(false);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-6">
@@ -139,41 +148,64 @@ function LinkList({
   return (
     <>
       <div className="flex items-center justify-between gap-2 px-2 py-1 text-xs text-muted-foreground">
-        <button
-          type="button"
-          className="hover:text-foreground"
-          onClick={() => (allSelected ? clearSelection() : selectAll())}
-        >
-          {allSelected ? "Clear selection" : "Select all"}
-        </button>
-        {selectedLinks.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <span>{selectedLinks.length} selected</span>
-            <Button
+        {selectMode ? (
+          <>
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-destructive hover:text-destructive"
-              onClick={() => onDeleteLinks(selectedLinks)}
+              className="hover:text-foreground"
+              onClick={() => (allSelected ? clearSelection() : selectAll())}
             >
-              <Trash2 className="mr-1 h-3.5 w-3.5" />
-              Delete
-            </Button>
-          </div>
-        ) : null}
+              {allSelected ? "Clear selection" : "Select all"}
+            </button>
+            <div className="flex items-center gap-2">
+              {selectedLinks.length > 0 ? (
+                <>
+                  <span>{selectedLinks.length} selected</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-destructive hover:text-destructive"
+                    onClick={() => onDeleteLinks(selectedLinks)}
+                  >
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    Delete
+                  </Button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                className="hover:text-foreground"
+                onClick={exitSelectMode}
+              >
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="hover:text-foreground"
+            onClick={() => onSelectModeChange(true)}
+          >
+            Select
+          </button>
+        )}
       </div>
       {links.map((link) => {
         const checked = selectedIds.has(link.id);
         return (
           <div key={link.id} className="group list-row">
-            <Checkbox
-              checked={checked}
-              onCheckedChange={(value) =>
-                toggleId(link.id, value === true)
-              }
-              onClick={(e) => e.stopPropagation()}
-              aria-label={`Select ${link.name || link.url}`}
-            />
+            {selectMode ? (
+              <Checkbox
+                checked={checked}
+                onCheckedChange={(value) =>
+                  toggleId(link.id, value === true)
+                }
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Select ${link.name || link.url}`}
+              />
+            ) : null}
             <button
               type="button"
               className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -182,29 +214,31 @@ function LinkList({
               <Favicon baseUrl={baseUrl} url={link.url} show={showIcons} />
               <span className="truncate">{link.name || link.url}</span>
             </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                  <span className="sr-only">Link actions</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => onDeleteLink(link)}
-                >
-                  <Trash2 className="mr-2 h-3.5 w-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!selectMode ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                    <span className="sr-only">Link actions</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => onDeleteLink(link)}
+                  >
+                    <Trash2 className="mr-2 h-3.5 w-3.5" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
         );
       })}
@@ -229,6 +263,8 @@ function FolderLinks({
   baseUrl,
   apiKey,
   showIcons,
+  selectMode,
+  onSelectModeChange,
   selectedIds,
   onSelectedIdsChange,
   onDeleteLink,
@@ -238,6 +274,8 @@ function FolderLinks({
   baseUrl: string;
   apiKey: string;
   showIcons: boolean;
+  selectMode: boolean;
+  onSelectModeChange: (on: boolean) => void;
   selectedIds: Set<number>;
   onSelectedIdsChange: (ids: Set<number>) => void;
   onDeleteLink: (link: LinkItem) => void;
@@ -266,6 +304,8 @@ function FolderLinks({
         links={links}
         baseUrl={baseUrl}
         showIcons={showIcons}
+        selectMode={selectMode}
+        onSelectModeChange={onSelectModeChange}
         selectedIds={selectedIds}
         onSelectedIdsChange={onSelectedIdsChange}
         onDeleteLink={onDeleteLink}
@@ -289,6 +329,7 @@ export default function CascadingBookmarks() {
   const [selectedLinkIds, setSelectedLinkIds] = useState<Set<number>>(
     () => new Set()
   );
+  const [linkSelectMode, setLinkSelectMode] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(search), 250);
@@ -297,6 +338,7 @@ export default function CascadingBookmarks() {
 
   useEffect(() => {
     setSelectedLinkIds(new Set());
+    setLinkSelectMode(false);
   }, [navMode, debounced, selectedTagId, path]);
 
   const configQuery = useQuery({
@@ -456,6 +498,7 @@ export default function CascadingBookmarks() {
     const failed = results.filter((r) => r.status === "rejected").length;
     const deleted = results.length - failed;
     setSelectedLinkIds(new Set());
+    if (failed === 0) setLinkSelectMode(false);
     await invalidateLinkQueries();
     if (failed === 0) {
       toast({
@@ -534,6 +577,8 @@ export default function CascadingBookmarks() {
                   ? "No pinned links"
                   : "No links found"
             }
+            selectMode={linkSelectMode}
+            onSelectModeChange={setLinkSelectMode}
             selectedIds={selectedLinkIds}
             onSelectedIdsChange={setSelectedLinkIds}
             onDeleteLink={(link) => void handleDeleteLink(link)}
@@ -566,6 +611,8 @@ export default function CascadingBookmarks() {
                 baseUrl={baseUrl}
                 showIcons={showIcons}
                 loading={listQuery.isLoading}
+                selectMode={linkSelectMode}
+                onSelectModeChange={setLinkSelectMode}
                 selectedIds={selectedLinkIds}
                 onSelectedIdsChange={setSelectedLinkIds}
                 onDeleteLink={(link) => void handleDeleteLink(link)}
@@ -617,6 +664,8 @@ export default function CascadingBookmarks() {
                 baseUrl={baseUrl}
                 apiKey={apiKey}
                 showIcons={showIcons}
+                selectMode={linkSelectMode}
+                onSelectModeChange={setLinkSelectMode}
                 selectedIds={selectedLinkIds}
                 onSelectedIdsChange={setSelectedLinkIds}
                 onDeleteLink={(link) => void handleDeleteLink(link)}
