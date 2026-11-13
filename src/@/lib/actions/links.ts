@@ -99,6 +99,21 @@ export async function deleteLinkFetch(
   });
 }
 
+/** UI-facing delete that throws when the API rejects the request. */
+export async function deleteLink(
+  baseUrl: string,
+  id: number,
+  apiKey: string
+): Promise<void> {
+  const response = await deleteLinkFetch(baseUrl, id, apiKey);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      detail.trim() || `Failed to delete link (${response.status})`
+    );
+  }
+}
+
 export interface LinkTag {
   id?: number;
   name: string;

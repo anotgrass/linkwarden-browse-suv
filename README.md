@@ -24,7 +24,7 @@ Firefox can auto-update from this GitHub repo after that first install.
 
 - Browse collections with drill-down navigation
 - **All** / **Pinned** / **Collections** / **Tags**
-- Search links; open, pin/unpin, edit, delete, copy URL
+- Search links; open them; delete one (⋯) or bulk-delete with checkboxes
 - **Add Site** into a collection (same drill-down picker)
 - Rename or delete collections in the popup (heavier management stays in the Linkwarden web UI)
 - Favicons (optional in settings)

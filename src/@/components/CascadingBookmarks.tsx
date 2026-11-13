@@ -1,13 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Globe, Hash, Loader2, Pencil, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  Globe,
+  Hash,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { getConfig } from "../lib/config.ts";
 import {
   deleteCollection,
   getCollections,
   updateCollection,
 } from "../lib/actions/collections.ts";
-import { LinkItem, faviconUrl, searchLinks } from "../lib/actions/links.ts";
+import {
+  LinkItem,
+  deleteLink,
+  faviconUrl,
+  searchLinks,
+} from "../lib/actions/links.ts";
 import { getTags, type ResponseTags } from "../lib/actions/tags.ts";
 import { getMe } from "../lib/actions/user.ts";
 import { openSafeUrl } from "../lib/utils.ts";
@@ -17,6 +31,13 @@ import CollectionDrillDown, {
 } from "./CollectionDrillDown.tsx";
 import NavSegment from "./NavSegment.tsx";
 import { Button } from "./ui/Button.tsx";
+import { Checkbox } from "./ui/CheckBox.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/DropDownMenu.tsx";
 import { Input } from "./ui/Input.tsx";
 import {
   Dialog,
@@ -59,17 +80,44 @@ function LinkList({
   showIcons,
   loading,
   empty,
+  selectedIds,
+  onSelectedIdsChange,
+  onDeleteLink,
+  onDeleteLinks,
 }: {
   links: LinkItem[];
   baseUrl: string;
   showIcons: boolean;
   loading?: boolean;
   empty?: string;
+  selectedIds: Set<number>;
+  onSelectedIdsChange: (ids: Set<number>) => void;
+  onDeleteLink: (link: LinkItem) => void;
+  onDeleteLinks: (links: LinkItem[]) => void;
 }) {
   const openAll = async () => {
     for (const link of links) {
       await openSafeUrl(link.url);
     }
+  };
+
+  const allSelected =
+    links.length > 0 && links.every((link) => selectedIds.has(link.id));
+  const selectedLinks = links.filter((link) => selectedIds.has(link.id));
+
+  const toggleId = (id: number, checked: boolean) => {
+    const next = new Set(selectedIds);
+    if (checked) next.add(id);
+    else next.delete(id);
+    onSelectedIdsChange(next);
+  };
+
+  const selectAll = () => {
+    onSelectedIdsChange(new Set(links.map((link) => link.id)));
+  };
+
+  const clearSelection = () => {
+    onSelectedIdsChange(new Set());
   };
 
   if (loading) {
@@ -90,17 +138,76 @@ function LinkList({
 
   return (
     <>
-      {links.map((link) => (
+      <div className="flex items-center justify-between gap-2 px-2 py-1 text-xs text-muted-foreground">
         <button
-          key={link.id}
           type="button"
-          className="list-row"
-          onClick={() => void openSafeUrl(link.url)}
+          className="hover:text-foreground"
+          onClick={() => (allSelected ? clearSelection() : selectAll())}
         >
-          <Favicon baseUrl={baseUrl} url={link.url} show={showIcons} />
-          <span className="truncate">{link.name || link.url}</span>
+          {allSelected ? "Clear selection" : "Select all"}
         </button>
-      ))}
+        {selectedLinks.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <span>{selectedLinks.length} selected</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-destructive hover:text-destructive"
+              onClick={() => onDeleteLinks(selectedLinks)}
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+              Delete
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      {links.map((link) => {
+        const checked = selectedIds.has(link.id);
+        return (
+          <div key={link.id} className="group list-row">
+            <Checkbox
+              checked={checked}
+              onCheckedChange={(value) =>
+                toggleId(link.id, value === true)
+              }
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Select ${link.name || link.url}`}
+            />
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+              onClick={() => void openSafeUrl(link.url)}
+            >
+              <Favicon baseUrl={baseUrl} url={link.url} show={showIcons} />
+              <span className="truncate">{link.name || link.url}</span>
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                  <span className="sr-only">Link actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => onDeleteLink(link)}
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      })}
       {links.length > 1 ? (
         <>
           <div className="my-1.5 h-px bg-border/70" />
@@ -122,11 +229,19 @@ function FolderLinks({
   baseUrl,
   apiKey,
   showIcons,
+  selectedIds,
+  onSelectedIdsChange,
+  onDeleteLink,
+  onDeleteLinks,
 }: {
   collectionId: number;
   baseUrl: string;
   apiKey: string;
   showIcons: boolean;
+  selectedIds: Set<number>;
+  onSelectedIdsChange: (ids: Set<number>) => void;
+  onDeleteLink: (link: LinkItem) => void;
+  onDeleteLinks: (links: LinkItem[]) => void;
 }) {
   const linksQuery = useQuery({
     queryKey: ["cascade-links", baseUrl, collectionId],
@@ -147,7 +262,15 @@ function FolderLinks({
 
   return (
     <div className="mt-1 border-t border-border pt-1">
-      <LinkList links={links} baseUrl={baseUrl} showIcons={showIcons} />
+      <LinkList
+        links={links}
+        baseUrl={baseUrl}
+        showIcons={showIcons}
+        selectedIds={selectedIds}
+        onSelectedIdsChange={onSelectedIdsChange}
+        onDeleteLink={onDeleteLink}
+        onDeleteLinks={onDeleteLinks}
+      />
     </div>
   );
 }
@@ -163,11 +286,18 @@ export default function CascadingBookmarks() {
     null
   );
   const [renameValue, setRenameValue] = useState("");
+  const [selectedLinkIds, setSelectedLinkIds] = useState<Set<number>>(
+    () => new Set()
+  );
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(search), 250);
     return () => window.clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    setSelectedLinkIds(new Set());
+  }, [navMode, debounced, selectedTagId, path]);
 
   const configQuery = useQuery({
     queryKey: ["ext-config"],
@@ -259,6 +389,12 @@ export default function CascadingBookmarks() {
     }
   };
 
+  const invalidateLinkQueries = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["cascade-links"] });
+    await queryClient.invalidateQueries({ queryKey: ["cascade-list"] });
+    await queryClient.invalidateQueries({ queryKey: ["browse-tags"] });
+  };
+
   const handleDelete = async (node: CollectionTreeNode) => {
     if (
       !confirm(
@@ -272,7 +408,7 @@ export default function CascadingBookmarks() {
       toast({ title: "Deleted", variant: "success" });
       setPath((prev) => prev.filter((id) => id !== node.id));
       await queryClient.invalidateQueries({ queryKey: ["collections"] });
-      await queryClient.invalidateQueries({ queryKey: ["cascade-links"] });
+      await invalidateLinkQueries();
     } catch (e) {
       toast({
         title: "Error",
@@ -280,6 +416,59 @@ export default function CascadingBookmarks() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDeleteLink = async (link: LinkItem) => {
+    const label = link.name || link.url;
+    if (!confirm(`Delete link “${label}”?`)) return;
+    try {
+      await deleteLink(baseUrl, link.id, apiKey);
+      setSelectedLinkIds((prev) => {
+        const next = new Set(prev);
+        next.delete(link.id);
+        return next;
+      });
+      toast({ title: "Deleted", variant: "success" });
+      await invalidateLinkQueries();
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: e instanceof Error ? e.message : "Delete failed",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteLinks = async (links: LinkItem[]) => {
+    if (links.length === 0) return;
+    if (
+      !confirm(
+        links.length === 1
+          ? `Delete link “${links[0].name || links[0].url}”?`
+          : `Delete ${links.length} links?`
+      )
+    ) {
+      return;
+    }
+    const results = await Promise.allSettled(
+      links.map((link) => deleteLink(baseUrl, link.id, apiKey))
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const deleted = results.length - failed;
+    setSelectedLinkIds(new Set());
+    await invalidateLinkQueries();
+    if (failed === 0) {
+      toast({
+        title: deleted === 1 ? "Deleted" : `Deleted ${deleted} links`,
+        variant: "success",
+      });
+      return;
+    }
+    toast({
+      title: "Delete finished with errors",
+      description: `${deleted} deleted, ${failed} failed`,
+      variant: "destructive",
+    });
   };
 
   if (configQuery.isLoading || collectionsQuery.isLoading) {
@@ -345,6 +534,10 @@ export default function CascadingBookmarks() {
                   ? "No pinned links"
                   : "No links found"
             }
+            selectedIds={selectedLinkIds}
+            onSelectedIdsChange={setSelectedLinkIds}
+            onDeleteLink={(link) => void handleDeleteLink(link)}
+            onDeleteLinks={(links) => void handleDeleteLinks(links)}
           />
         </div>
       ) : navMode === "tags" ? (
@@ -373,6 +566,10 @@ export default function CascadingBookmarks() {
                 baseUrl={baseUrl}
                 showIcons={showIcons}
                 loading={listQuery.isLoading}
+                selectedIds={selectedLinkIds}
+                onSelectedIdsChange={setSelectedLinkIds}
+                onDeleteLink={(link) => void handleDeleteLink(link)}
+                onDeleteLinks={(links) => void handleDeleteLinks(links)}
               />
             ) : tagsQuery.isLoading ? (
               <div className="flex justify-center py-6">
@@ -420,6 +617,10 @@ export default function CascadingBookmarks() {
                 baseUrl={baseUrl}
                 apiKey={apiKey}
                 showIcons={showIcons}
+                selectedIds={selectedLinkIds}
+                onSelectedIdsChange={setSelectedLinkIds}
+                onDeleteLink={(link) => void handleDeleteLink(link)}
+                onDeleteLinks={(links) => void handleDeleteLinks(links)}
               />
             ) : null
           }
