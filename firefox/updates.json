@@ -1,0 +1,12 @@
+{
+  "addons": {
+    "linkwarden-browse@local": {
+      "updates": [
+        {
+          "version": "1.6.0",
+          "update_link": "https://github.com/anotgrass/linkwarden-browse-suv/releases/download/v1.6.0/linkwarden-browse-1.6.0.xpi"
+        }
+      ]
+    }
+  }
+}
