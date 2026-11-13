@@ -5,6 +5,10 @@
         {
           "version": "1.6.0",
           "update_link": "https://github.com/anotgrass/linkwarden-browse-suv/releases/download/v1.6.0/linkwarden-browse-1.6.0.xpi"
+        },
+        {
+          "version": "1.6.1",
+          "update_link": "https://github.com/anotgrass/linkwarden-browse-suv/releases/download/v1.6.1/linkwarden-browse-1.6.1.xpi"
         }
       ]
     }
